@@ -1,9 +1,9 @@
-package com.gswxxn.xmsfnotichannel.activity
+package com.yukino1111.xmsfnotichannelfork.activity
 
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
-import com.gswxxn.xmsfnotichannel.R
+import com.yukino1111.xmsfnotichannelfork.R
 
 abstract class BaseActivity : Activity() {
 

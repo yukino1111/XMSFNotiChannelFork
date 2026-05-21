@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.utils
+package com.yukino1111.xmsfnotichannelfork.utils
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -19,6 +19,7 @@ class AppInfoHelper(private val context : Context) {
     data class NCInfo(
         val channelGroupName: String,
         val channelName: String,
+        val channelId: String,
         var importance: Int
     )
 

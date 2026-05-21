@@ -1,10 +1,10 @@
 <resources>
-    <string name="app_name">你这运营消息根本就全都是广告吧</string>
+    <string name="app_name">你这运营消息根本就全都是广告吧Fork</string>
 
     <string name="module_version">模块版本：%s</string>
     <string name="module_is_not_active">模块未激活</string>
     <string name="module_is_active">模块已激活</string>
-    <string name="xposed_framework_version">Activated by %s API %d</string>
+    <string name="xposed_framework_version">Activated by %1$s API %2$d</string>
     <string name="loading">正在加载……</string>
     <string name="check_active_toast">请检查模块是否激活</string>
     <string name="no_group">[无分组]</string>
@@ -23,7 +23,7 @@
     <string name="alert_reset">恢复默认</string>
     <string name="can_not_be_empty">搜索名称不能为空</string>
     <string name="searching_name">通知通道搜索名称</string>
-    <string name="searching_name_summary">支持正则匹配</string>
+    <string name="searching_name_summary">支持正则，匹配通道名、分组名或通道 ID</string>
 
     <string name="version">v%s</string>
     <string name="follow_me">点个关注，不迷路</string>

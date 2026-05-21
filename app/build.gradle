@@ -1,24 +1,55 @@
+import java.util.Properties
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.devtools.ksp' version '1.7.20-1.0.6'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def releaseKeystoreFile = null
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    def storeFilePath = keystoreProperties["storeFile"]
+    if (storeFilePath) {
+        releaseKeystoreFile = rootProject.file(storeFilePath)
+    }
+}
+def hasReleaseSigning = releaseKeystoreFile?.exists()
+if (keystorePropertiesFile.exists() && !hasReleaseSigning) {
+    println("Release keystore not found, assembleRelease will build an unsigned release artifact.")
+}
+
 android {
     compileSdk 33
 
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile releaseKeystoreFile
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
     defaultConfig {
-        applicationId "com.gswxxn.xmsfnotichannel"
+        applicationId "com.yukino1111.xmsfnotichannelfork"
         minSdk 28
         targetSdk 33
-        versionCode 121
-        versionName "1.2.1"
+        versionCode 1
+        versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -33,7 +64,15 @@ android {
     buildFeatures {
         viewBinding true
     }
-    namespace 'com.gswxxn.xmsfnotichannel'
+    namespace 'com.yukino1111.xmsfnotichannelfork'
+}
+
+android.applicationVariants.all { variant ->
+    variant.outputs.all {
+        if (variant.buildType.name == "release") {
+            outputFileName = "release.apk"
+        }
+    }
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.utils
+package com.yukino1111.xmsfnotichannelfork.utils
 
 import android.content.Context
 import android.graphics.*

@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.activity
+package com.yukino1111.xmsfnotichannelfork.activity
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -11,15 +11,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.preference.PreferenceManager
-import com.gswxxn.xmsfnotichannel.BuildConfig
-import com.gswxxn.xmsfnotichannel.R
-import com.gswxxn.xmsfnotichannel.activity.MainActivity.Companion.defaultChannelName
-import com.gswxxn.xmsfnotichannel.databinding.ActivityAboutPageBinding
-import com.gswxxn.xmsfnotichannel.utils.RoundDegree
-import com.gswxxn.xmsfnotichannel.utils.dp2px
-import com.gswxxn.xmsfnotichannel.utils.drawable2Bitmap
-import com.gswxxn.xmsfnotichannel.utils.roundBitmapByShader
+import com.yukino1111.xmsfnotichannelfork.BuildConfig
+import com.yukino1111.xmsfnotichannelfork.R
+import com.yukino1111.xmsfnotichannelfork.activity.MainActivity.Companion.defaultChannelName
+import com.yukino1111.xmsfnotichannelfork.databinding.ActivityAboutPageBinding
+import com.yukino1111.xmsfnotichannelfork.utils.RoundDegree
+import com.yukino1111.xmsfnotichannelfork.utils.dp2px
+import com.yukino1111.xmsfnotichannelfork.utils.drawable2Bitmap
+import com.yukino1111.xmsfnotichannelfork.utils.roundBitmapByShader
 
+private const val FORK_REPO_URL = "https://github.com/yukino1111/XMSFNotiChannelFork"
 
 class AboutPageActivity : BaseActivity() {
     private lateinit var binding: ActivityAboutPageBinding
@@ -79,16 +80,6 @@ class AboutPageActivity : BaseActivity() {
 
             }
 
-            miluIcon.setImageBitmap(roundBitmapByShader(
-                getDrawable(R.mipmap.img_developer)?.let {
-                    drawable2Bitmap(
-                        it,
-                        it.intrinsicHeight
-                    )
-                }, RoundDegree.Circle
-            )
-            )
-
             version.text = getString(R.string.version, BuildConfig.VERSION_NAME)
 
             val componentName = ComponentName(this@AboutPageActivity, MainActivity::class.java)
@@ -105,31 +96,23 @@ class AboutPageActivity : BaseActivity() {
                 )
             }
 
-            developerMilu.setOnClickListener {
-                Toast.makeText(this@AboutPageActivity, getString(R.string.follow_me), Toast.LENGTH_SHORT).show()
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("coolmarket://u/1189245")))
-                } catch (e: Exception) {
-                    startActivity(
-                        Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse("http://www.coolapk.com/u/1189245")
-                        )
-                    )
-                }
-            }
-
             githubRepo.setOnClickListener {
                 Toast.makeText(this@AboutPageActivity, getString(R.string.star_project), Toast.LENGTH_SHORT).show()
                 startActivity(
                     Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/GSWXXN/XMSFNotiChannel")
+                        Uri.parse(FORK_REPO_URL)
                     )
                 )
             }
 
             licenseLayout.apply {
+                addLicenseV(
+                    "XMSFNotiChannel",
+                    "GSWXXN",
+                    "https://github.com/GSWXXN/XMSFNotiChannel",
+                    "GNU Affero General Public License v3.0"
+                )
                 addLicenseV(
                     "MIUINativeNotifyIcon",
                     "fankes",

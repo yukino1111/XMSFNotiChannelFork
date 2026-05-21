@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.utils
+package com.yukino1111.xmsfnotichannelfork.utils
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
@@ -43,13 +43,37 @@ class NCUtils(private val context : Context) {
             sINM, pkgName, context.packageManager.getPackageUid(pkgName, 0), channel
         )
 
+    private fun buildChannelPattern(channelPattern: String) =
+        runCatching { Regex(channelPattern) }
+            .getOrElse { Regex(Regex.escape(channelPattern)) }
+
+    private fun matchChannel(
+        channel: NotificationChannel,
+        notificationChannelGroup: NotificationChannelGroup,
+        channelPattern: Regex
+    ): Boolean {
+        val channelName = channel.name?.toString().orEmpty()
+        val channelGroupName = notificationChannelGroup.name?.toString().orEmpty()
+        return channelPattern.containsMatchIn(channel.id) ||
+            channelPattern.containsMatchIn(channelName) ||
+            channelPattern.containsMatchIn(channelGroupName)
+    }
+
     // 获取通知通道信息
     fun getNotificationChannelInfoByRegex(pkgName: String, channelNameRegex: String): List<AppInfoHelper.NCInfo> {
         val ncInfoList = mutableListOf<AppInfoHelper.NCInfo>()
+        val channelPattern = buildChannelPattern(channelNameRegex)
         getNotificationChannelGroups(pkgName).forEach{ notificationChannelGroup ->
             notificationChannelGroup.channels.forEach {
-                if (it.name.matches(Regex(channelNameRegex)))
-                    ncInfoList.add(AppInfoHelper.NCInfo(notificationChannelGroup.name?.toString() ?: "", it.name.toString(), it.importance))
+                if (matchChannel(it, notificationChannelGroup, channelPattern))
+                    ncInfoList.add(
+                        AppInfoHelper.NCInfo(
+                            notificationChannelGroup.name?.toString() ?: "",
+                            it.name?.toString().orEmpty(),
+                            it.id,
+                            it.importance
+                        )
+                    )
             }
         }
         return ncInfoList
@@ -58,7 +82,7 @@ class NCUtils(private val context : Context) {
     fun enableSpecificNotification(appInfo: AppInfoHelper.MyAppInfo) {
         getNotificationChannelGroups(appInfo.packageName).forEach { group ->
             group.channels.forEach { channel ->
-                if (channel.name == appInfo.ncInfo.channelName) {
+                if (channel.id == appInfo.ncInfo.channelId) {
                     channel.importance = NotificationManager.IMPORTANCE_DEFAULT
                     setNotificationChannel(appInfo.packageName, channel)
                 }
@@ -69,7 +93,7 @@ class NCUtils(private val context : Context) {
     fun disableSpecificNotification(appInfo: AppInfoHelper.MyAppInfo) {
         getNotificationChannelGroups(appInfo.packageName).forEach { group ->
             group.channels.forEach { channel ->
-                if (channel.name == appInfo.ncInfo.channelName) {
+                if (channel.id == appInfo.ncInfo.channelId) {
                     channel.importance = NotificationManager.IMPORTANCE_NONE
                     setNotificationChannel(appInfo.packageName, channel)
                 }

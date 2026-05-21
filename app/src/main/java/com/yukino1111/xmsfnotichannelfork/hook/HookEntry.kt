@@ -1,8 +1,8 @@
-package com.gswxxn.xmsfnotichannel.hook
+package com.yukino1111.xmsfnotichannelfork.hook
 
 import android.content.pm.PackageManager
 import android.os.Binder
-import com.gswxxn.xmsfnotichannel.BuildConfig
+import com.yukino1111.xmsfnotichannelfork.BuildConfig
 import com.highcapable.yukihookapi.YukiHookAPI
 import com.highcapable.yukihookapi.annotation.xposed.InjectYukiHookWithXposed
 import com.highcapable.yukihookapi.hook.log.YukiHookLogger

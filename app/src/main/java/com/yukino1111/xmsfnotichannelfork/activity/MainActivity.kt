@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.activity
+package com.yukino1111.xmsfnotichannelfork.activity
 
 import android.content.Intent
 import android.view.LayoutInflater
@@ -7,12 +7,12 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Toast
 import androidx.preference.PreferenceManager
-import com.gswxxn.xmsfnotichannel.BuildConfig
-import com.gswxxn.xmsfnotichannel.R
-import com.gswxxn.xmsfnotichannel.databinding.ActivityMainBinding
-import com.gswxxn.xmsfnotichannel.databinding.AdapterConfigBinding
-import com.gswxxn.xmsfnotichannel.utils.AppInfoHelper
-import com.gswxxn.xmsfnotichannel.utils.NCUtils
+import com.yukino1111.xmsfnotichannelfork.BuildConfig
+import com.yukino1111.xmsfnotichannelfork.R
+import com.yukino1111.xmsfnotichannelfork.databinding.ActivityMainBinding
+import com.yukino1111.xmsfnotichannelfork.databinding.AdapterConfigBinding
+import com.yukino1111.xmsfnotichannelfork.utils.AppInfoHelper
+import com.yukino1111.xmsfnotichannelfork.utils.NCUtils
 import com.highcapable.yukihookapi.YukiHookAPI
 import com.highcapable.yukihookapi.YukiHookAPI.Status.Executor
 import com.highcapable.yukihookapi.hook.factory.dataChannel

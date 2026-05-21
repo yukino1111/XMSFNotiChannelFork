@@ -1,4 +1,4 @@
-package com.gswxxn.xmsfnotichannel.utils
+package com.yukino1111.xmsfnotichannelfork.utils
 
 enum class RoundDegree {
     RoundCorner,
