@@ -6,8 +6,8 @@ hiddenApiBypass = "6.1"
 coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.9.4"
 activityCompose = "1.11.0"
-composeBom = "2026.02.01"
-material3 = "1.5.0-beta02"
+composeBom = "2026.11.01"
+material3 = "1.5.0"
 
 [libraries]
 xposed-legacy = { group = "de.robv.android.xposed", name = "api", version.ref = "xposedLegacy" }

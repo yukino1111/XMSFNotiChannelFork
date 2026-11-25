@@ -9,13 +9,6 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -199,7 +192,6 @@ fun NotiChannelScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val haptics = LocalHapticFeedback.current
-    val motionScheme = MaterialTheme.motionScheme
 
     LaunchedEffect(state.statusMessage) {
         val msg = state.statusMessage ?: return@LaunchedEffect
@@ -220,26 +212,8 @@ fun NotiChannelScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surface,
     ) {
-        AnimatedContent(
-            targetState = route,
-            transitionSpec = {
-                val goingBack = targetState is ScreenRoute.Home && initialState !is ScreenRoute.Home
-                if (goingBack) {
-                    (slideInHorizontally(motionScheme.defaultSpatialSpec()) { -it / 6 } +
-                        fadeIn(motionScheme.defaultEffectsSpec())) togetherWith
-                        (slideOutHorizontally(motionScheme.defaultSpatialSpec()) { it / 6 } +
-                            fadeOut(motionScheme.fastEffectsSpec()))
-                } else {
-                    (slideInHorizontally(motionScheme.defaultSpatialSpec()) { it / 6 } +
-                        fadeIn(motionScheme.defaultEffectsSpec())) togetherWith
-                        (slideOutHorizontally(motionScheme.defaultSpatialSpec()) { -it / 10 } +
-                            fadeOut(motionScheme.fastEffectsSpec()))
-                }
-            },
-            label = "route_transition",
-        ) { currentRoute ->
-            when (currentRoute) {
-                ScreenRoute.Home -> {
+        when (val currentRoute = route) {
+            ScreenRoute.Home -> {
                     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
                     Scaffold(
                         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -315,59 +289,50 @@ fun NotiChannelScreen(
                                 .padding(padding)
                                 .fillMaxSize(),
                         ) {
-                            AnimatedContent(
-                                targetState = selectedTab,
-                                transitionSpec = {
-                                    fadeIn(motionScheme.defaultEffectsSpec()) togetherWith
-                                        fadeOut(motionScheme.fastEffectsSpec())
-                                },
-                                label = "tab_transition",
-                            ) { tabIdx ->
-                                when (tabIdx) {
-                                    0 -> OverviewTab(
-                                        state = state,
-                                        onRefreshAll = onRefreshAll,
-                                        onJumpChannels = { scope ->
-                                            channelScope = scope
-                                            selectedTab = 1
-                                        },
-                                        onJumpHistory = { selectedTab = 2 },
-                                        onToggleForceBlockGlobal = onToggleForceBlockGlobal,
-                                        onToggleRecordOngoing = onToggleRecordOngoing,
-                                        onToggleHideIcon = onToggleHideIcon,
-                                        onExportReport = onExportReport,
-                                        onOpenImport = { showImportDialog = true },
-                                    )
-                                    1 -> ChannelsTab(
-                                        state = state,
-                                        query = channelQuery,
-                                        onQueryChange = { channelQuery = it },
-                                        scopeFilter = channelScope,
-                                        onScopeChange = { channelScope = it },
-                                        hideSystemApps = hideSystemApps,
-                                        onHideSystemChange = { hideSystemApps = it },
-                                        onBatchSetImportance = onBatchSetImportance,
-                                        onOpenDetail = openAppDetail,
-                                    )
-                                    else -> HistoryTab(
-                                        state = state,
-                                        subTab = historySubTab,
-                                        onSubTabChange = { historySubTab = it },
-                                        query = historyQuery,
-                                        onQueryChange = { historyQuery = it },
-                                        onToggleChannel = { pkg, chId, imp, forceBlocked ->
-                                            onToggleChannel(pkg, chId, imp, forceBlocked) {
-                                                lockedChannelPrompt = pkg to chId
-                                            }
-                                        },
-                                        onSetForceBlock = onSetForceBlock,
-                                        onOpenDetail = openAppDetail,
-                                        onToggleIgnoreApp = onToggleIgnoreApp,
-                                        onClearAppHistory = { pkg -> onClearHistory(pkg) },
-                                        onSetRetentionDays = onSetRetentionDays,
-                                        onOpenClearAll = { showClearAllDialog = true },
-                                    )
-                                }
+                            when (selectedTab) {
+                                0 -> OverviewTab(
+                                    state = state,
+                                    onRefreshAll = onRefreshAll,
+                                    onJumpChannels = { scope ->
+                                        channelScope = scope
+                                        selectedTab = 1
+                                    },
+                                    onJumpHistory = { selectedTab = 2 },
+                                    onToggleForceBlockGlobal = onToggleForceBlockGlobal,
+                                    onToggleRecordOngoing = onToggleRecordOngoing,
+                                    onToggleHideIcon = onToggleHideIcon,
+                                    onExportReport = onExportReport,
+                                    onOpenImport = { showImportDialog = true },
+                                )
+                                1 -> ChannelsTab(
+                                    state = state,
+                                    query = channelQuery,
+                                    onQueryChange = { channelQuery = it },
+                                    scopeFilter = channelScope,
+                                    onScopeChange = { channelScope = it },
+                                    hideSystemApps = hideSystemApps,
+                                    onHideSystemChange = { hideSystemApps = it },
+                                    onBatchSetImportance = onBatchSetImportance,
+                                    onOpenDetail = openAppDetail,
+                                )
+                                else -> HistoryTab(
+                                    state = state,
+                                    subTab = historySubTab,
+                                    onSubTabChange = { historySubTab = it },
+                                    query = historyQuery,
+                                    onQueryChange = { historyQuery = it },
+                                    onToggleChannel = { pkg, chId, imp, forceBlocked ->
+                                        onToggleChannel(pkg, chId, imp, forceBlocked) {
+                                            lockedChannelPrompt = pkg to chId
+                                        }
+                                    },
+                                    onSetForceBlock = onSetForceBlock,
+                                    onOpenDetail = openAppDetail,
+                                    onToggleIgnoreApp = onToggleIgnoreApp,
+                                    onClearAppHistory = { pkg -> onClearHistory(pkg) },
+                                    onSetRetentionDays = onSetRetentionDays,
+                                    onOpenClearAll = { showClearAllDialog = true },
+                                )
                             }
                         }
                     }
@@ -399,7 +364,6 @@ fun NotiChannelScreen(
                         onDeleteContentRule = { ruleId -> onDeleteContentRule(currentRoute.pkg, ruleId) },
                     )
                 }
-            }
         }
     }
 
@@ -787,7 +751,6 @@ private fun ChannelsTab(
     onOpenDetail: (String, String) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val motionScheme = MaterialTheme.motionScheme
     var batchConfirmEnable by remember { mutableStateOf<Boolean?>(null) }
     var longPressedGroup by remember { mutableStateOf<AppChannelGroup?>(null) }
 
@@ -839,9 +802,7 @@ private fun ChannelsTab(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .animateContentSize(animationSpec = motionScheme.defaultSpatialSpec()),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
@@ -965,11 +926,6 @@ private fun ChannelsTab(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                             ),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = motionScheme.defaultEffectsSpec(),
-                                placementSpec = motionScheme.defaultSpatialSpec(),
-                                fadeOutSpec = motionScheme.fastEffectsSpec(),
-                            ),
                             leadingContent = {
                                 DrawableIcon(group.icon, modifier = Modifier.size(40.dp))
                             },
@@ -1141,7 +1097,6 @@ private fun HistoryTab(
     onOpenClearAll: () -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val motionScheme = MaterialTheme.motionScheme
     val detailTimeFmt = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val shortTimeFmt = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
 
@@ -1273,11 +1228,6 @@ private fun HistoryTab(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                                 ),
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                                modifier = Modifier.animateItem(
-                                    fadeInSpec = motionScheme.defaultEffectsSpec(),
-                                    placementSpec = motionScheme.defaultSpatialSpec(),
-                                    fadeOutSpec = motionScheme.fastEffectsSpec(),
-                                ),
                                 leadingContent = {
                                     DrawableIcon(item.icon, modifier = Modifier.size(36.dp))
                                 },

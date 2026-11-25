@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "com.yukino1111.xmsfnotichannelfork"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     defaultConfig {
         applicationId = "com.yukino1111.xmsfnotichannelfork"
