@@ -5,6 +5,10 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+# Keep Xposed entry class
+-keep class com.yukino1111.xmsfnotichannelfork.hook.HookEntry { *; }
+-keep class * implements de.robv.android.xposed.IXposedHookLoadPackage { *; }
+
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
 # class:
