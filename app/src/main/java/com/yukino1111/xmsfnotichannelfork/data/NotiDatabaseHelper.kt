@@ -18,7 +18,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
 
     companion object {
         private const val DB_NAME = "noti_history.db"
-        private const val DB_VERSION = 3
+        private const val DB_VERSION = 4
         private const val TABLE_HISTORY = "noti_history"
         private const val TABLE_IGNORED = "ignored_pkgs"
         private const val TABLE_FORCE_BLOCK = "force_block_channels"
@@ -59,12 +59,15 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
                 title TEXT NOT NULL DEFAULT '',
                 text TEXT NOT NULL DEFAULT '',
                 sub_text TEXT NOT NULL DEFAULT '',
-                post_time INTEGER NOT NULL
+                post_time INTEGER NOT NULL,
+                slot_key TEXT NOT NULL DEFAULT '',
+                is_ongoing INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX idx_noti_pkg_chan_time ON $TABLE_HISTORY(pkg, channel_id, post_time DESC)")
         db.execSQL("CREATE INDEX idx_noti_time ON $TABLE_HISTORY(post_time DESC)")
+        db.execSQL("CREATE INDEX idx_noti_ongoing_slot ON $TABLE_HISTORY(pkg, channel_id, slot_key, is_ongoing, post_time DESC)")
         db.execSQL(
             """
             CREATE TABLE $TABLE_IGNORED (
@@ -83,6 +86,11 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
         }
         if (oldVersion < 3) {
             createContentRulesTable(db)
+        }
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE $TABLE_HISTORY ADD COLUMN slot_key TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE $TABLE_HISTORY ADD COLUMN is_ongoing INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_noti_ongoing_slot ON $TABLE_HISTORY(pkg, channel_id, slot_key, is_ongoing, post_time DESC)")
         }
     }
 
@@ -125,10 +133,41 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
         title: String,
         text: String,
         subText: String,
-        postTime: Long
+        postTime: Long,
+        slotKey: String = "",
+        isOngoing: Boolean = false
     ): Boolean {
         if (isPackageIgnored(pkg)) return false
         val db = writableDatabase
+        if (isOngoing && slotKey.isNotEmpty() && importance != 0) {
+            val dayCutoff = postTime - DAY_MS
+            db.rawQuery(
+                """
+                SELECT id, title, text, sub_text, post_time FROM $TABLE_HISTORY
+                WHERE pkg = ? AND channel_id = ? AND slot_key = ? AND is_ongoing = 1 AND post_time >= ?
+                ORDER BY post_time DESC, id DESC
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(pkg, channelId, slotKey, dayCutoff.toString())
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val existingId = cursor.getLong(0)
+                    val changed = cursor.getString(1) != title ||
+                        cursor.getString(2) != text ||
+                        cursor.getString(3) != subText
+                    val mergedTime = maxOf(cursor.getLong(4), postTime)
+                    val values = ContentValues().apply {
+                        put("title", title)
+                        put("text", text)
+                        put("sub_text", subText)
+                        put("post_time", mergedTime)
+                    }
+                    db.update(TABLE_HISTORY, values, "id = ?", arrayOf(existingId.toString()))
+                    return changed
+                }
+            }
+        }
+
         val cutoff = postTime - DEDUP_WINDOW_MS
         db.rawQuery(
             """
@@ -151,6 +190,8 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
             put("text", text)
             put("sub_text", subText)
             put("post_time", postTime)
+            put("slot_key", slotKey)
+            put("is_ongoing", if (isOngoing) 1 else 0)
         }
         val rowId = db.insert(TABLE_HISTORY, null, values)
         if (rowId != -1L && insertCounter.incrementAndGet() % PRUNE_INTERVAL == 0) {
@@ -353,7 +394,9 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
             val title = item.optString("title")
             val text = item.optString("text")
             val subText = item.optString("subText")
-            if (insertNotification(pkg, channelId, channelName, channelGroup, importance, title, text, subText, postTime)) {
+            val slotKey = item.optString("slotKey")
+            val isOngoing = item.optBoolean("isOngoing", false)
+            if (insertNotification(pkg, channelId, channelName, channelGroup, importance, title, text, subText, postTime, slotKey, isOngoing)) {
                 inserted++
             }
         }

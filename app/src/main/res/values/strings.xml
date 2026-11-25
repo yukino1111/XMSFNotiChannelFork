@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">你这运营消息根本就全都是广告吧Fork</string>
+    <string name="xposed_description">全渠道通知历史排查与运营广告通道管理</string>
 </resources>

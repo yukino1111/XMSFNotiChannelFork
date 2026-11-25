@@ -7,6 +7,7 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
+        android:description="@string/xposed_description"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -48,18 +49,5 @@
                 <action android:name="com.yukino1111.xmsfnotichannelfork.ACTION_CLEAR_HISTORY" />
             </intent-filter>
         </receiver>
-
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="全渠道通知历史排查与运营广告通道管理" />
-        <meta-data
-            android:name="xposedminversion"
-            android:value="93" />
-        <meta-data
-            android:name="xposedscope"
-            android:value="android" />
     </application>
 </manifest>

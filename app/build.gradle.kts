@@ -83,7 +83,7 @@ android {
 }
 
 dependencies {
-    compileOnly(libs.xposed.legacy)
+    compileOnly(libs.libxposed.api)
     implementation(libs.hiddenapibypass)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -573,7 +573,7 @@ private fun OverviewTab(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     GlobalToggleRow(
                         title = "记录常驻 / 前台服务通知",
-                        subtitle = "默认跳过 VPN、音乐、进度条等常驻状态通知",
+                        subtitle = "关闭时跳过常驻状态通知；开启后按同一通知槽位合并更新",
                         checked = state.recordOngoing,
                         onCheckedChange = onToggleRecordOngoing,
                     )

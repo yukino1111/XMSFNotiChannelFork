@@ -5,9 +5,12 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Keep Xposed entry class
--keep class com.yukino1111.xmsfnotichannelfork.hook.HookEntry { *; }
--keep class * implements de.robv.android.xposed.IXposedHookLoadPackage { *; }
+# Keep Xposed module entry point (libxposed API 102)
+-dontwarn io.github.libxposed.annotation.**
+-adaptresourcefilecontents META-INF/xposed/java_init.list
+-keep,allowoptimization,allowobfuscation public class * extends io.github.libxposed.api.XposedModule {
+    public <init>();
+}
 
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface

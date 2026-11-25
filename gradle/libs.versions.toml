@@ -1,7 +1,7 @@
 [versions]
 agp = "9.2.1"
 kotlin = "2.3.10"
-xposedLegacy = "82"
+libxposedApi = "102.0.0"
 hiddenApiBypass = "6.1"
 coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.9.4"
@@ -10,7 +10,7 @@ composeBom = "2026.11.01"
 material3 = "1.5.0"
 
 [libraries]
-xposed-legacy = { group = "de.robv.android.xposed", name = "api", version.ref = "xposedLegacy" }
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
 hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenApiBypass" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
