@@ -46,7 +46,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -172,8 +171,8 @@ fun NotiChannelScreen(
     onDeleteContentRule: (pkg: String, ruleId: Long) -> Unit,
     onSetRetentionDays: (Int) -> Unit,
     onClearHistory: (pkg: String?) -> Unit,
-    onExportReport: () -> Unit,
-    onImportRules: (String) -> Unit,
+    onExportReportFile: () -> Unit,
+    onImportRules: () -> Unit,
     onDismissMessage: () -> Unit,
 ) {
     var route by remember { mutableStateOf<ScreenRoute>(ScreenRoute.Home) }
@@ -186,7 +185,6 @@ fun NotiChannelScreen(
     var historyQuery by remember { mutableStateOf("") }
 
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
     var showClearAllDialog by remember { mutableStateOf(false) }
     var lockedChannelPrompt by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -301,8 +299,8 @@ fun NotiChannelScreen(
                                     onToggleForceBlockGlobal = onToggleForceBlockGlobal,
                                     onToggleRecordOngoing = onToggleRecordOngoing,
                                     onToggleHideIcon = onToggleHideIcon,
-                                    onExportReport = onExportReport,
-                                    onOpenImport = { showImportDialog = true },
+                                    onExportReportFile = onExportReportFile,
+                                    onImportRules = onImportRules,
                                 )
                                 1 -> ChannelsTab(
                                     state = state,
@@ -393,16 +391,6 @@ fun NotiChannelScreen(
         )
     }
 
-    if (showImportDialog) {
-        ImportRulesDialog(
-            onDismiss = { showImportDialog = false },
-            onApply = { raw ->
-                showImportDialog = false
-                onImportRules(raw)
-            },
-        )
-    }
-
     if (showClearAllDialog) {
         AlertDialog(
             onDismissRequest = { showClearAllDialog = false },
@@ -446,8 +434,8 @@ private fun OverviewTab(
     onToggleForceBlockGlobal: (Boolean) -> Unit,
     onToggleRecordOngoing: (Boolean) -> Unit,
     onToggleHideIcon: (Boolean) -> Unit,
-    onExportReport: () -> Unit,
-    onOpenImport: () -> Unit,
+    onExportReportFile: () -> Unit,
+    onImportRules: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     val enabledCount = remember(state.channels) {
@@ -600,19 +588,19 @@ private fun OverviewTab(
             Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
                 ActionListRow(
                     icon = Icons.Rounded.FileUpload,
-                    title = "导出历史排查 JSON 报告",
-                    subtitle = "复制报告 JSON 并保存到应用数据目录",
+                    title = "导出 JSON 报告",
+                    subtitle = "含通知样本与全部规则，保存为文件",
                     index = 0,
                     count = 2,
-                    onClick = onExportReport,
+                    onClick = onExportReportFile,
                 )
                 ActionListRow(
                     icon = Icons.Rounded.FileDownload,
-                    title = "粘贴规则 JSON 批量应用",
-                    subtitle = "支持开关渠道、入队强拦截与内容正则规则",
+                    title = "导入 JSON 配置",
+                    subtitle = "选择规则文件或导出的报告恢复配置",
                     index = 1,
                     count = 2,
-                    onClick = onOpenImport,
+                    onClick = onImportRules,
                 )
             }
         }
@@ -1954,43 +1942,6 @@ private fun EmptyStateCard(icon: ImageVector, text: String) {
             )
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ImportRulesDialog(
-    onDismiss: () -> Unit,
-    onApply: (String) -> Unit,
-) {
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("粘贴规则 JSON 批量应用") },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 5,
-                maxLines = 10,
-                placeholder = { Text("[{\"pkg\":\"...\",\"channelId\":\"...\",\"action\":\"disable\"}]") },
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = { onApply(text) },
-                enabled = text.isNotBlank(),
-                shapes = ButtonDefaults.shapes(),
-            ) {
-                Text("应用")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        },
-    )
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)

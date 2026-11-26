@@ -1,16 +1,15 @@
 package com.yukino1111.xmsfnotichannelfork.activity
 
 import android.app.NotificationManager
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
@@ -30,10 +29,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.coroutines.resume
 
 class HomeActivity : ComponentActivity() {
 
@@ -46,6 +51,18 @@ class HomeActivity : ComponentActivity() {
     private val appInfoHelper by lazy { AppInfoHelper(applicationContext) }
 
     private val state = MutableStateFlow(MainUiState())
+
+    private val exportDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) saveReportToUri(uri)
+    }
+
+    private val importDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) importRulesFromUri(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,8 +101,8 @@ class HomeActivity : ComponentActivity() {
                     onDeleteContentRule = ::deleteContentRule,
                     onSetRetentionDays = ::setRetentionDays,
                     onClearHistory = ::clearHistory,
-                    onExportReport = ::exportReport,
-                    onImportRules = ::importRules,
+                    onExportReportFile = ::exportReportToFile,
+                    onImportRules = ::importRulesFromFile,
                     onDismissMessage = { state.update { it.copy(statusMessage = null) } },
                 )
             }
@@ -530,22 +547,67 @@ class HomeActivity : ComponentActivity() {
         }
     }
 
-    private fun exportReport() {
+    private suspend fun buildExportReport(): Pair<Int, String> {
+        if (state.value.hookActive) {
+            withTimeoutOrNull(1500L) {
+                suspendCancellableCoroutine { cont ->
+                    HookBridge.requestFlushHistory(this@HomeActivity) {
+                        if (cont.isActive) cont.resume(Unit)
+                    }
+                }
+            }
+        }
+        return withContext(Dispatchers.IO) {
+            val report = db.exportReportJson(nc, sampleLimit = 10, onlyEnabled = false)
+            val formatted = report.toString(2)
+            File(filesDir, "noti_report.json").writeText(formatted)
+            report.optInt("channelCount") to formatted
+        }
+    }
+
+    private fun exportReportToFile() {
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        exportDocumentLauncher.launch("xmsf_noti_report_$stamp.json")
+    }
+
+    private fun saveReportToUri(uri: Uri) {
         lifecycleScope.launch {
-            val jsonStr = withContext(Dispatchers.IO) {
-                val report = db.exportReportJson(nc, sampleLimit = 10, onlyEnabled = false)
-                val formatted = report.toString(2)
-                File(filesDir, "noti_report.json").writeText(formatted)
-                formatted
+            val result = runCatching {
+                val (channelCount, jsonStr) = buildExportReport()
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+                        writer.write(jsonStr)
+                    } ?: error("无法打开输出文件")
+                }
+                channelCount to jsonStr.toByteArray(Charsets.UTF_8).size
             }
-            val msg = if (jsonStr.length <= 200_000) {
-                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(ClipData.newPlainText("xmsf_noti_report", jsonStr))
-                "已导出报告并复制到剪贴板"
-            } else {
-                "报告已保存到 ${File(filesDir, "noti_report.json").absolutePath}"
+            result.onSuccess { (channelCount, bytes) ->
+                loadHistoryData()
+                val sizeLabel = if (bytes < 1024) "$bytes B" else "${(bytes + 1023) / 1024} KB"
+                state.update { it.copy(statusMessage = "已导出完整报告（$channelCount 个渠道，$sizeLabel）") }
+            }.onFailure { err ->
+                state.update { it.copy(statusMessage = "导出失败：${err.message ?: "写入文件出错"}") }
             }
-            state.update { it.copy(statusMessage = msg) }
+        }
+    }
+
+    private fun importRulesFromFile() {
+        importDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+    }
+
+    private fun importRulesFromUri(uri: Uri) {
+        lifecycleScope.launch {
+            val rawResult = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: error("无法读取文件内容")
+                }
+            }
+            rawResult.onSuccess { raw ->
+                importRules(raw)
+            }.onFailure { err ->
+                state.update { it.copy(statusMessage = "导入失败：${err.message ?: "读取文件出错"}") }
+            }
         }
     }
 
@@ -554,45 +616,49 @@ class HomeActivity : ComponentActivity() {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     val trimmed = raw.trim()
-                    val array = if (trimmed.startsWith("{")) {
-                        JSONObject(trimmed).optJSONArray("rules") ?: JSONArray()
-                    } else {
-                        JSONArray(trimmed)
-                    }
+                    if (trimmed.isEmpty()) throw IllegalArgumentException("内容为空")
+                    val liveCache = mutableMapOf<String, Map<String, AppInfoHelper.NCInfo>>()
                     var okCount = 0
                     var failCount = 0
-                    for (i in 0 until array.length()) {
-                        val obj = array.optJSONObject(i) ?: continue
-                        val pkg = obj.optString("pkg").trim()
-                        val channelId = obj.optString("channelId").trim()
-                        val action = obj.optString("action").lowercase()
-                        if (pkg.isNotEmpty() && action == "add_content_rule") {
-                            val pattern = obj.optString("pattern").trim()
-                            if (db.addContentRule(pkg, channelId, pattern) > 0L) {
-                                okCount++
-                            } else {
-                                failCount++
+
+                    fun applyRuleArray(array: JSONArray) {
+                        for (i in 0 until array.length()) {
+                            val obj = array.optJSONObject(i) ?: continue
+                            if (applyImportedEntry(obj, liveCache)) okCount++ else failCount++
+                        }
+                    }
+
+                    if (trimmed.startsWith("[")) {
+                        applyRuleArray(JSONArray(trimmed))
+                    } else {
+                        val root = JSONObject(trimmed)
+                        val rulesArray = root.optJSONArray("rules")
+                        val channelsArray = root.optJSONArray("channels")
+                        val contentRulesArray = root.optJSONArray("contentRules")
+                        val ignoredPackagesArray = root.optJSONArray("ignoredPackages")
+                        if (rulesArray == null && channelsArray == null && contentRulesArray == null && ignoredPackagesArray == null) {
+                            throw IllegalArgumentException("未找到 rules、channels 或 contentRules 字段")
+                        }
+                        ignoredPackagesArray?.let { arr ->
+                            for (i in 0 until arr.length()) {
+                                val pkg = arr.optString(i).trim()
+                                if (pkg.isNotEmpty()) {
+                                    db.setPackageIgnored(pkg, true)
+                                    okCount++
+                                }
                             }
-                            continue
                         }
-                        if (pkg.isNotEmpty() && channelId.isNotEmpty() && (action == "force_block" || action == "unblock")) {
-                            db.setForceBlocked(pkg, channelId, action == "force_block")
-                            okCount++
-                            continue
-                        }
-                        val importance = if (obj.has("importance")) {
-                            obj.optInt("importance", -1)
-                        } else if (action in listOf("enable", "on", "allow")) {
-                            3
-                        } else {
-                            0
-                        }
-                        if (pkg.isNotEmpty() && channelId.isNotEmpty() && importance >= 0 &&
-                            nc.setChannelImportance(pkg, channelId, importance)
-                        ) {
-                            okCount++
-                        } else {
-                            failCount++
+                        rulesArray?.let { applyRuleArray(it) }
+                        channelsArray?.let { applyRuleArray(it) }
+                        contentRulesArray?.let { arr ->
+                            for (i in 0 until arr.length()) {
+                                val obj = arr.optJSONObject(i) ?: continue
+                                val pkg = obj.optString("pkg").trim()
+                                val channelId = obj.optString("channelId").trim()
+                                val pattern = obj.optString("pattern").trim()
+                                val enabled = obj.optBoolean("enabled", true)
+                                if (db.addContentRule(pkg, channelId, pattern, enabled) > 0L) okCount++ else failCount++
+                            }
                         }
                     }
                     HookBridge.syncRulesToSystem(this@HomeActivity)
@@ -601,10 +667,86 @@ class HomeActivity : ComponentActivity() {
             }
             result.onSuccess { (okCount, failCount) ->
                 refreshAll()
-                state.update { it.copy(statusMessage = "规则应用完成：成功 $okCount，失败 $failCount") }
-            }.onFailure {
-                state.update { it.copy(statusMessage = "JSON 格式无效") }
+                state.update { it.copy(statusMessage = "导入完成：成功 $okCount，失败 $failCount") }
+            }.onFailure { err ->
+                val detail = err.message?.takeIf { it.isNotBlank() } ?: "JSON 格式无效"
+                state.update { it.copy(statusMessage = "导入失败：$detail") }
             }
         }
+    }
+
+    private fun applyImportedEntry(
+        obj: JSONObject,
+        liveCache: MutableMap<String, Map<String, AppInfoHelper.NCInfo>>,
+    ): Boolean {
+        val pkg = obj.optString("pkg").trim()
+        val channelId = obj.optString("channelId").trim()
+        val action = obj.optString("action").lowercase(Locale.ROOT)
+
+        when (action) {
+            "add_content_rule" -> {
+                val pattern = obj.optString("pattern").trim()
+                val enabled = obj.optBoolean("enabled", true)
+                return pkg.isNotEmpty() && db.addContentRule(pkg, channelId, pattern, enabled) > 0L
+            }
+            "clear_content_rules" -> {
+                db.clearContentRules(pkg.ifBlank { null })
+                return true
+            }
+            "ignore_app", "unignore_app" -> {
+                if (pkg.isEmpty()) return false
+                db.setPackageIgnored(pkg, action == "ignore_app")
+                return true
+            }
+            "force_block", "unblock" -> {
+                if (pkg.isEmpty() || channelId.isEmpty()) return false
+                db.setForceBlocked(pkg, channelId, action == "force_block")
+                return true
+            }
+        }
+
+        if (pkg.isEmpty() || channelId.isEmpty()) return false
+
+        if (obj.has("forceBlock")) {
+            db.setForceBlocked(pkg, channelId, obj.optBoolean("forceBlock"))
+            return true
+        }
+
+        val hasForceBlocked = obj.optBoolean("forceBlocked", false)
+        if (hasForceBlocked) {
+            db.setForceBlocked(pkg, channelId, true)
+        }
+
+        val importance = when {
+            obj.has("importance") -> obj.optInt("importance", -1)
+            action in listOf("enable", "on", "allow") -> NotificationManager.IMPORTANCE_DEFAULT
+            action in listOf("disable", "off", "block") -> NotificationManager.IMPORTANCE_NONE
+            obj.has("enabled") -> if (obj.optBoolean("enabled")) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_NONE
+            else -> -1
+        }
+
+        if (importance < 0) return hasForceBlocked
+
+        val liveMap = liveCache.getOrPut(pkg) {
+            nc.getAllChannels(pkg).associateBy { it.channelId }
+        }
+        val currentImp = liveMap[channelId]?.importance
+        if (currentImp == importance) {
+            if (importance > 0 && !hasForceBlocked) db.setForceBlocked(pkg, channelId, false)
+            return true
+        }
+
+        val updated = nc.setChannelImportance(pkg, channelId, importance)
+        val actual = nc.getChannelImportance(pkg, channelId)
+        val locked = importance == 0 && (!updated || actual > 0)
+        if (!locked && updated) {
+            if (importance > 0 && !hasForceBlocked) db.setForceBlocked(pkg, channelId, false)
+            return true
+        }
+        if (locked && (hasForceBlocked || obj.optBoolean("autoForceBlock", false))) {
+            db.setForceBlocked(pkg, channelId, true)
+            return true
+        }
+        return hasForceBlocked
     }
 }

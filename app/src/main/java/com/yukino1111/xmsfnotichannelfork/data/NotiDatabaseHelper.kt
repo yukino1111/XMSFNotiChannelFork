@@ -323,7 +323,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
     }
 
     @Synchronized
-    fun addContentRule(pkg: String, channelId: String, pattern: String): Long {
+    fun addContentRule(pkg: String, channelId: String, pattern: String, enabled: Boolean = true): Long {
         val cleanPkg = pkg.trim()
         val cleanChannel = channelId.trim()
         val cleanPattern = pattern.trim()
@@ -337,7 +337,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
         ).use { c ->
             if (c.moveToFirst()) {
                 val existingId = c.getLong(0)
-                val cv = ContentValues().apply { put("enabled", 1) }
+                val cv = ContentValues().apply { put("enabled", if (enabled) 1 else 0) }
                 db.update(TABLE_CONTENT_RULES, cv, "id = ?", arrayOf(existingId.toString()))
                 return existingId
             }
@@ -346,7 +346,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
             put("pkg", cleanPkg)
             put("channel_id", cleanChannel)
             put("pattern", cleanPattern)
-            put("enabled", 1)
+            put("enabled", if (enabled) 1 else 0)
             put("created_at", System.currentTimeMillis())
         }
         return db.insert(TABLE_CONTENT_RULES, null, values)
@@ -631,7 +631,9 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
         val timeFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val apps = getAppSummaries()
         val forceBlockedKeys = getForceBlockedKeys()
+        val ignoredPackages = getIgnoredPackages().sorted()
         val channelArray = JSONArray()
+        val exportedChannels = HashSet<String>()
         val liveCache = mutableMapOf<String, Map<String, com.yukino1111.xmsfnotichannelfork.utils.AppInfoHelper.NCInfo>>()
 
         for (app in apps) {
@@ -642,8 +644,10 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
             for (ch in channels) {
                 val live = liveMap[ch.channelId]
                 val effectiveImportance = live?.importance ?: ch.importance
-                val isForceBlocked = forceBlockedKeys.contains("${app.pkg}|${ch.channelId}")
+                val key = "${app.pkg}|${ch.channelId}"
+                val isForceBlocked = forceBlockedKeys.contains(key)
                 if (onlyEnabled && effectiveImportance == 0 && !isForceBlocked) continue
+                exportedChannels.add(key)
 
                 val sampleArray = JSONArray()
                 val seenSamples = HashSet<String>()
@@ -669,7 +673,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
                         put("channelName", live?.channelName?.ifBlank { ch.channelName } ?: ch.channelName)
                         put("channelGroup", live?.channelGroupName?.ifBlank { ch.channelGroup } ?: ch.channelGroup)
                         put("importance", effectiveImportance)
-                        put("enabled", effectiveImportance != 0)
+                        put("enabled", effectiveImportance > 0)
                         put("forceBlocked", isForceBlocked)
                         put("count", ch.count)
                         put("lastPostTime", ch.lastPostTime)
@@ -678,6 +682,35 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
                     }
                 )
             }
+        }
+
+        for (key in forceBlockedKeys.sorted()) {
+            if (exportedChannels.contains(key)) continue
+            val sep = key.indexOf('|')
+            if (sep <= 0) continue
+            val pkg = key.substring(0, sep)
+            val channelId = key.substring(sep + 1)
+            val liveMap = liveCache.getOrPut(pkg) {
+                ncUtils?.getAllChannels(pkg)?.associateBy { it.channelId }.orEmpty()
+            }
+            val live = liveMap[channelId]
+            val effectiveImportance = live?.importance ?: -1
+            channelArray.put(
+                JSONObject().apply {
+                    put("pkg", pkg)
+                    put("appName", resolveAppName(pm, pkg))
+                    put("channelId", channelId)
+                    put("channelName", live?.channelName.orEmpty())
+                    put("channelGroup", live?.channelGroupName.orEmpty())
+                    put("importance", effectiveImportance)
+                    put("enabled", effectiveImportance > 0)
+                    put("forceBlocked", true)
+                    put("count", 0L)
+                    put("lastPostTime", 0L)
+                    put("lastTimeStr", "")
+                    put("samples", JSONArray())
+                }
+            )
         }
 
         val contentRuleArray = JSONArray()
@@ -700,6 +733,7 @@ class NotiDatabaseHelper private constructor(private val appContext: Context) :
             put("channels", channelArray)
             put("contentRuleCount", contentRuleArray.length())
             put("contentRules", contentRuleArray)
+            put("ignoredPackages", JSONArray(ignoredPackages))
         }
     }
 

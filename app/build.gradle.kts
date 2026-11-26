@@ -14,11 +14,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.yukino1111.xmsfnotichannelfork"
+        applicationId = "com.yukino1111.XMSFNotiChannelFork"
         minSdk = 28
         targetSdk = 33
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
